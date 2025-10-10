@@ -1,0 +1,24 @@
+{
+    "ani-cli-ita": {
+        "zip_filename": "ani-cli-ita.zip",
+        "dir": "X:/cartelllla/git/ani-cli-ita",
+        "files": [
+            "main.py",
+            "README.md",
+            "requirements.txt"
+        ]
+    },
+    "Music_Player": {
+        "zip_filename": "Music_Player.zip",
+        "dir": "X:/cartelllla/git/Music_Player",
+        "files": [
+            "static/",
+            "templates/",
+            "lib.py",
+            "main.py",
+            "README.md",
+            "requirements.txt",
+            "server.py"
+        ]
+    }
+}
