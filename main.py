@@ -1,5 +1,6 @@
 import os
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+import requests
 
 GITHUB = 'https://raw.githubusercontent.com/dj2828/aggiorna-dj/main/'
 
