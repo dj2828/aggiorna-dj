@@ -1,4 +1,11 @@
 {
+    "self": {
+        "zip_filename": "aggiorna-dj.zip",
+        "dir": "./",
+        "files": [
+            "main.py"
+        ]
+    },
     "ani-cli-ita": {
         "zip_filename": "ani-cli-ita.zip",
         "dir": "X:/cartelllla/git/ani-cli-ita",
