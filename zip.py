@@ -126,3 +126,4 @@ if __name__ == "__main__":
             print(f"Errore nella configurazione per '{project_name}': mancano 'zip_filename' o 'files'.")
             
     print("\n--- PROCESSO DI ZIPPING COMPLETATO ---")
+    input()
