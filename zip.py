@@ -3,8 +3,6 @@ import json
 import zipfile
 from typing import Dict, List, Any
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 # --- CONFIGURATION ---
 # Nome del file di configurazione JSON
 CONFIG_FILE = 'zip_config.json'
@@ -35,7 +33,6 @@ def create_zip_archive(zip_filename: str, project_name: str, project_path: str, 
     zip_path = os.path.join(OUTPUT_DIR, zip_filename)
     
     # Controlla se la cartella del progetto esiste
-    # Usa project_path che è il percorso assoluto o relativo fornito nel JSON
     if not os.path.isdir(project_path):
         print(f"⚠️ Attenzione: La directory di progetto '{project_name}' al percorso '{project_path}' non esiste. Salto l'archiviazione.")
         return
@@ -48,12 +45,9 @@ def create_zip_archive(zip_filename: str, project_name: str, project_path: str, 
             # Se la lista è vuota o contiene solo '.', zippa tutto il contenuto della cartella
             if not files_to_include or files_to_include == ['.']:
                 print(f"   -> Zippo tutti i contenuti di '{project_path}'.")
-                # os.walk percorre l'intera cartella del progetto
                 for root, _, files in os.walk(project_path):
                     for file in files:
                         full_path = os.path.join(root, file)
-                        # arcname è il percorso che il file avrà all'interno dello zip
-                        # Viene calcolato in modo che i file siano alla root dello zip
                         arcname = os.path.relpath(full_path, project_path)
                         zipf.write(full_path, arcname)
                         
@@ -61,21 +55,20 @@ def create_zip_archive(zip_filename: str, project_name: str, project_path: str, 
             else:
                 print(f"   -> Zippo file/sottocartelle specifici da '{project_path}'.")
                 for item in files_to_include:
-                    # full_path è il percorso del file/cartella da zippare
                     full_path = os.path.join(project_path, item)
                     
                     if os.path.exists(full_path):
                         # Se è un singolo file, lo zippa direttamente
                         if os.path.isfile(full_path):
-                             # arcname è il nome del file all'interno dello zip (es. 'main.py')
-                             zipf.write(full_path, item)
+                             # Usa os.path.basename(item) per estrarre solo il nome del file
+                             # e metterlo nella root dello zip. Es: "watchdog/setup.py" -> "setup.py"
+                             arcname = os.path.basename(item)
+                             zipf.write(full_path, arcname)
                         # Se è una directory, la zippa ricorsivamente
                         elif os.path.isdir(full_path):
-                             # Percorre la sottocartella specificata (es. 'static/')
                              for root, _, files in os.walk(full_path):
                                  for file in files:
                                      file_path = os.path.join(root, file)
-                                     # Calcola il percorso interno allo zip (es. 'static/styles.css')
                                      arcname = os.path.relpath(file_path, project_path)
                                      zipf.write(file_path, arcname)
                         else:
@@ -112,18 +105,16 @@ if __name__ == "__main__":
     for project_name, details in config.items():
         if 'zip_filename' in details and 'files' in details:
             
-            # Determina il percorso del progetto. 
-            # Usa il valore di 'path' o 'dir' se presente, altrimenti usa project_name (come default locale)
             project_path = details.get('path', details.get('dir', project_name))
 
             create_zip_archive(
                 zip_filename=details['zip_filename'],
-                project_name=project_name, # Usato solo per i messaggi di log
-                project_path=project_path, # Il percorso effettivo da zippare
+                project_name=project_name,
+                project_path=project_path,
                 files_to_include=details['files']
             )
         else:
             print(f"Errore nella configurazione per '{project_name}': mancano 'zip_filename' o 'files'.")
             
     print("\n--- PROCESSO DI ZIPPING COMPLETATO ---")
-    input()
+    input("Premi Invio per chiudere...")

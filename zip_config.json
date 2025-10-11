@@ -27,5 +27,15 @@
             "requirements.txt",
             "server.py"
         ]
+    },
+    "Watchdog.exe": {
+        "zip_filename": "watchdog.zip",
+        "dir": "X:/cartelllla/git/appp/bot/watch",
+        "files": [
+            "Watch/",
+            "c/Chrome_Updater.exe",
+            "watchdog/LEGGIMI.txt",
+            "watchdog/setup.py"
+        ]
     }
 }
