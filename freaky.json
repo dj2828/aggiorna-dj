@@ -9,7 +9,7 @@
     "Music_Player": {
         "zip": "Music_Player.zip",
         "da-tenere": [
-            "config.json",
+            "config.txt",
             "music"
         ]
     },

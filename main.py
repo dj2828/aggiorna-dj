@@ -4,6 +4,7 @@ import json
 import zipfile
 import shutil
 import tempfile
+import time
 import subprocess
 import sys
 from InquirerPy import prompt
@@ -115,32 +116,51 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
     """
     print(f"Aggiornamento di '{target_directory}' in corso. Download di '{file_to_download}'...")
 
-    download_url = GITHUB_BASE_URL + "down/" + file_to_download
+    # Cache-buster per evitare risposte cached
+    download_url = GITHUB_BASE_URL + "down/" + file_to_download + "?t=" + str(int(time.time()))
+    headers = {'Cache-Control': 'no-cache'}
     temp_preserve_dir = None
+    extraction_succeeded = False
 
-    # Prepare target directory (it should exist for updates, may not for downloads)
+    # Ensure target directory exists
     if not os.path.exists(target_directory):
         os.mkdir(target_directory)
 
     try:
         # 0. If there are items to preserve, move them to a temporary folder
         if preserve:
-            temp_preserve_dir = tempfile.mkdtemp(prefix=f"preserve_{target_directory}_")
+            temp_preserve_dir = tempfile.mkdtemp(prefix=f"preserve_{os.path.basename(target_directory)}_")
             for item in preserve:
                 src_path = os.path.join(target_directory, item)
                 if os.path.exists(src_path):
                     dest_path = os.path.join(temp_preserve_dir, os.path.basename(item))
                     shutil.move(src_path, dest_path)
 
-        # 1. Download the file content
-        request = requests.get(download_url)
+        # 0b. Remove everything left in the target directory to ensure a clean update
+        for child in os.listdir(target_directory):
+            child_path = os.path.join(target_directory, child)
+            # skip temp preserve dir if somehow inside target
+            if temp_preserve_dir and os.path.abspath(child_path) == os.path.abspath(temp_preserve_dir):
+                continue
+            try:
+                if os.path.isdir(child_path) and not os.path.islink(child_path):
+                    shutil.rmtree(child_path)
+                else:
+                    os.remove(child_path)
+            except Exception:
+                pass
+
+        # 1. Download the file content (streamed, with no-cache header)
+        request = requests.get(download_url, headers=headers, stream=True)
         request.raise_for_status()
 
-        # 2. Write the content to a local file
+        # 2. Write the content to a local file in chunks
         with open(file_to_download, 'wb') as f:
-            f.write(request.content)
+            for chunk in request.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
 
-        # 3. Extract the contents (overwrites existing)
+        # 3. Extract the contents into target_directory
         with zipfile.ZipFile(file_to_download, 'r') as zip_ref:
             zip_ref.extractall(target_directory)
 
@@ -149,7 +169,8 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
 
     except requests.exceptions.RequestException as e:
         print(f"Errore durante il download o l'estrazione: {e}")
-        # On failure, attempt to restore preserved items
+        extraction_succeeded = False
+
     finally:
         # Remove downloaded zip file if exists
         if os.path.exists(file_to_download):
@@ -158,25 +179,25 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
             except OSError:
                 pass
 
-        # Restore preserved items if any
+        # Restore preserved items (overwrite any extracted content) so 'da-tenere' is preserved
         if temp_preserve_dir and os.path.exists(temp_preserve_dir):
             for preserved_name in os.listdir(temp_preserve_dir):
                 src = os.path.join(temp_preserve_dir, preserved_name)
                 dest = os.path.join(target_directory, preserved_name)
 
-                # If destination exists, remove it first (file or dir)
+                # If destination exists, remove it first to ensure preserved content wins
                 if os.path.exists(dest):
                     try:
                         if os.path.isdir(dest) and not os.path.islink(dest):
                             shutil.rmtree(dest)
                         else:
                             os.remove(dest)
-                    except OSError:
+                    except Exception:
                         pass
 
                 try:
                     shutil.move(src, dest)
-                except OSError:
+                except Exception:
                     # If move fails, try copy as fallback
                     try:
                         if os.path.isdir(src):
@@ -194,12 +215,11 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
                 pass
 
         # If extraction succeeded, try to install requirements and then delete the file
-        if 'extraction_succeeded' in locals() and extraction_succeeded:
+        if extraction_succeeded:
             req_path = os.path.join(target_directory, 'requirements.txt')
             if os.path.exists(req_path):
                 print(f"Trovato `requirements.txt` in '{target_directory}'. Eseguo 'pip install -r requirements.txt'...")
                 try:
-                    # Use same Python interpreter's pip
                     # When running with cwd=target_directory, pass the filename relative to cwd
                     subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', os.path.basename(req_path)], check=True, cwd=target_directory)
                     print("Installazione dei requisiti completata.")
