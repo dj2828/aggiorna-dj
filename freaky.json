@@ -1,4 +1,16 @@
 {
-    "ani-cli-ita": "ani-cli-ita.zip",
-    "Music_Player": "Music_Player.zip"
+    "ani-cli-ita":{
+        "zip": "ani-cli-ita.zip",
+        "da-tenere": [
+            "preferiti.txt",
+            "down"
+        ]
+    },
+    "Music_Player": {
+        "zip": "Music_Player.zip",
+        "da-tenere": [
+            "config.json",
+            "music"
+        ]
+    }
 }

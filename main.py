@@ -2,6 +2,8 @@ import os
 import requests
 import json
 import zipfile
+import shutil
+import tempfile
 from InquirerPy import prompt
 from InquirerPy.base.control import Choice
 from typing import List, Dict, Any
@@ -29,7 +31,7 @@ def get_local_components() -> List[str]:
         
     return local_dirs
 
-def fetch_available_components(url: str) -> Dict[str, str]:
+def fetch_available_components(url: str) -> Dict[str, Dict]:
     """Fetches the list of available components from the GitHub JSON file."""
     try:
         response = requests.get(url + 'freaky.json')
@@ -39,7 +41,7 @@ def fetch_available_components(url: str) -> Dict[str, str]:
         print(f"Errore nel recupero della lista dei componenti: {e}")
         exit()
 
-def create_choices(component_list: Dict[str, str], local_list: List[str], mode: str) -> List[Any]:
+def create_choices(component_list: Dict[str, Dict], local_list: List[str], mode: str) -> List[Any]:
     """
     Creates the choices list for InquirerPy.
     - If mode is 'update', it includes only components present in local_list.
@@ -82,7 +84,7 @@ def prompt_user(message: str, choices: List[Any]) -> str:
     # The result should always contain the key because of the prompt setup
     return selection_result['selected_choice']
 
-def process_selection(selected_choice_string: str, available_data: Dict[str, str]) -> tuple[str, str]:
+def process_selection(selected_choice_string: str, available_data: Dict[str, Dict]) -> tuple[str, str, list]:
     """Parses the choice string and returns the key and value from the data."""
     # 1. Parse the string (e.g., "3) nome_scelto") to get the original index
     # The split gets '3', int() converts it, and -1 makes it a 0-based index
@@ -93,37 +95,50 @@ def process_selection(selected_choice_string: str, available_data: Dict[str, str
         raise ValueError("Selezione non valida per l'analisi dell'indice.")
         
     # 2. Use the correct 0-based index to retrieve the KEY and VALUE
-    # key_name (e.g., "mod_x") is the directory to extract to (dove)
     key_name = list(available_data.keys())[scelta_index]
 
-    # cosa (e.g., "mod_x.zip") is the file to download (the VALUE)
-    cosa = available_data[key_name]
-    # dove (e.g., "mod_x") is the local directory to extract the files into (the KEY)
+    # available_data entries in the JSON are objects: { "zip": "file.zip", "da-tenere": [...] }
+    entry = available_data.get(key_name, {})
+    cosa = entry.get('zip')
+    da_tenere = entry.get('da-tenere', [])
     dove = key_name
-    
-    return cosa, dove
 
-def download_and_extract(file_to_download: str, target_directory: str):
-    """Handles the download, extraction, and cleanup process."""
+    return cosa, dove, da_tenere
+
+def download_and_extract(file_to_download: str, target_directory: str, preserve: List[str] | None = None):
+    """Handles the download, extraction, preservation and cleanup process.
+
+    - `preserve` is a list of file/directory names (relative to `target_directory`) to be
+      temporarily moved aside and restored after extraction.
+    """
     print(f"Aggiornamento di '{target_directory}' in corso. Download di '{file_to_download}'...")
-    
-    # Full URL for the zip file
+
     download_url = GITHUB_BASE_URL + "down/" + file_to_download
+    temp_preserve_dir = None
+
+    # Prepare target directory (it should exist for updates, may not for downloads)
+    if not os.path.exists(target_directory):
+        os.mkdir(target_directory)
 
     try:
+        # 0. If there are items to preserve, move them to a temporary folder
+        if preserve:
+            temp_preserve_dir = tempfile.mkdtemp(prefix=f"preserve_{target_directory}_")
+            for item in preserve:
+                src_path = os.path.join(target_directory, item)
+                if os.path.exists(src_path):
+                    dest_path = os.path.join(temp_preserve_dir, os.path.basename(item))
+                    shutil.move(src_path, dest_path)
+
         # 1. Download the file content
         request = requests.get(download_url)
-        request.raise_for_status() # Raise an error for bad status codes (4xx or 5xx)
+        request.raise_for_status()
 
         # 2. Write the content to a local file
         with open(file_to_download, 'wb') as f:
             f.write(request.content)
-            
-        # Ensure the target directory exists
-        if not os.path.exists(target_directory):
-            os.mkdir(target_directory)
 
-        # 3. Extract the contents
+        # 3. Extract the contents (overwrites existing)
         with zipfile.ZipFile(file_to_download, 'r') as zip_ref:
             zip_ref.extractall(target_directory)
 
@@ -131,13 +146,49 @@ def download_and_extract(file_to_download: str, target_directory: str):
 
     except requests.exceptions.RequestException as e:
         print(f"Errore durante il download o l'estrazione: {e}")
-        return
-
+        # On failure, attempt to restore preserved items
     finally:
-        # 4. Clean up by removing the downloaded zip file
+        # Remove downloaded zip file if exists
         if os.path.exists(file_to_download):
-            os.remove(file_to_download)
-            # print(f"File temporaneo '{file_to_download}' rimosso.")
+            try:
+                os.remove(file_to_download)
+            except OSError:
+                pass
+
+        # Restore preserved items if any
+        if temp_preserve_dir and os.path.exists(temp_preserve_dir):
+            for preserved_name in os.listdir(temp_preserve_dir):
+                src = os.path.join(temp_preserve_dir, preserved_name)
+                dest = os.path.join(target_directory, preserved_name)
+
+                # If destination exists, remove it first (file or dir)
+                if os.path.exists(dest):
+                    try:
+                        if os.path.isdir(dest) and not os.path.islink(dest):
+                            shutil.rmtree(dest)
+                        else:
+                            os.remove(dest)
+                    except OSError:
+                        pass
+
+                try:
+                    shutil.move(src, dest)
+                except OSError:
+                    # If move fails, try copy as fallback
+                    try:
+                        if os.path.isdir(src):
+                            shutil.copytree(src, dest)
+                        else:
+                            shutil.copy2(src, dest)
+                    except Exception:
+                        pass
+
+            # Clean up the temporary preserve directory
+            try:
+                if os.path.exists(temp_preserve_dir):
+                    shutil.rmtree(temp_preserve_dir)
+            except OSError:
+                pass
 
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
@@ -184,8 +235,8 @@ if __name__ == "__main__":
     # --- PROCESS SELECTION AND RUN UPDATE/DOWNLOAD ---
     
     try:
-        cosa, dove = process_selection(selected_choice, available_data)
-        download_and_extract(cosa, dove)
+        cosa, dove, da_tenere = process_selection(selected_choice, available_data)
+        download_and_extract(cosa, dove, preserve=da_tenere)
     except ValueError as e:
         # This catches the ValueError raised if 'scarica' somehow gets here
         print(f"Errore di elaborazione della selezione: {e}")
