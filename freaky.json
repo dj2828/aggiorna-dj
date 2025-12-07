@@ -12,5 +12,8 @@
             "config.json",
             "music"
         ]
+    },
+    "watchdog": {
+        "zip": "watchdog.zip"
     }
 }
