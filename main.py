@@ -4,6 +4,8 @@ import json
 import zipfile
 import shutil
 import tempfile
+import subprocess
+import sys
 from InquirerPy import prompt
 from InquirerPy.base.control import Choice
 from typing import List, Dict, Any
@@ -143,6 +145,7 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
             zip_ref.extractall(target_directory)
 
         print(f"Aggiornamento completato. Contenuto estratto in '{target_directory}'.")
+        extraction_succeeded = True
 
     except requests.exceptions.RequestException as e:
         print(f"Errore durante il download o l'estrazione: {e}")
@@ -189,6 +192,27 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
                     shutil.rmtree(temp_preserve_dir)
             except OSError:
                 pass
+
+        # If extraction succeeded, try to install requirements and then delete the file
+        if 'extraction_succeeded' in locals() and extraction_succeeded:
+            req_path = os.path.join(target_directory, 'requirements.txt')
+            if os.path.exists(req_path):
+                print(f"Trovato `requirements.txt` in '{target_directory}'. Eseguo 'pip install -r requirements.txt'...")
+                try:
+                    # Use same Python interpreter's pip
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', req_path], check=True, cwd=target_directory)
+                    print("Installazione dei requisiti completata.")
+                except subprocess.CalledProcessError as e:
+                    print(f"Errore durante l'installazione dei requisiti: {e}")
+                except Exception as e:
+                    print(f"Errore inatteso durante l'installazione dei requisiti: {e}")
+
+                # Rimuovi il file requirements.txt dopo il tentativo
+                try:
+                    os.remove(req_path)
+                    print("File 'requirements.txt' rimosso.")
+                except OSError:
+                    print("Impossibile rimuovere 'requirements.txt'.")
 
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
