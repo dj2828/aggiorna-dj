@@ -200,7 +200,8 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
                 print(f"Trovato `requirements.txt` in '{target_directory}'. Eseguo 'pip install -r requirements.txt'...")
                 try:
                     # Use same Python interpreter's pip
-                    subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', req_path], check=True, cwd=target_directory)
+                    # When running with cwd=target_directory, pass the filename relative to cwd
+                    subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', os.path.basename(req_path)], check=True, cwd=target_directory)
                     print("Installazione dei requisiti completata.")
                 except subprocess.CalledProcessError as e:
                     print(f"Errore durante l'installazione dei requisiti: {e}")
