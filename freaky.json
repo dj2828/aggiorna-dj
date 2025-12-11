@@ -15,5 +15,11 @@
     },
     "watchdog": {
         "zip": "watchdog.zip"
+    },
+    "Music_Player_standalone": {
+        "zip": "Music_Player_standalone.zip",
+        "da-tenere": [
+            "directories.txt"
+        ]
     }
 }

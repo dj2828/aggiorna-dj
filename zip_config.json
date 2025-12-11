@@ -39,5 +39,13 @@
             "watchdog/LEGGIMI.txt",
             "watchdog/setup.py"
         ]
+    },
+    "Music_Player_standalone": {
+        "zip_filename": "Music_Player_standalone.zip",
+        "dir": "X:\\cartelllla\\git\\appp\\tauri\\Music_player\\src-tauri\\target\\release",
+        "files": [
+            "music_player.exe",
+            "directories.txt"
+        ]
     }
 }
