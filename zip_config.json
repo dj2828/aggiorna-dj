@@ -47,5 +47,14 @@
             "music_player.exe",
             "directories.txt"
         ]
+    },
+    "Music_Player_standalone_python": {
+        "zip_filename": "Music_Player_standalone_python.zip",
+        "dir": "X:/cartelllla/git/Music_Player/dist/Music_player/",
+        "files": [
+            "_internal/",
+            "Music_player.exe",
+            "../../requirements.txt"
+        ]
     }
 }

@@ -21,5 +21,12 @@
         "da-tenere": [
             "directories.txt"
         ]
+    },
+    "Music_Player_standalone_python": {
+        "zip": "Music_Player_standalone_python.zip",
+        "da-tenere": [
+            "_internal/config.txt",
+            "_internal/music"
+        ]
     }
 }
