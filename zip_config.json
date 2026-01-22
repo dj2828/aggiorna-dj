@@ -50,11 +50,15 @@
     },
     "Music_Player_standalone_python": {
         "zip_filename": "Music_Player_standalone_python.zip",
-        "dir": "X:/cartelllla/git/Music_Player/dist/Music_player/",
+        "dir": "X:/cartelllla/git/Music_Player/",
         "files": [
-            "_internal/",
-            "Music_player.exe",
-            "../../requirements.txt"
+            "static/",
+            "templates/",
+            "lib.py",
+            "main.py",
+            "README.md",
+            "requirements.txt",
+            "app.pyw"
         ]
     }
 }
