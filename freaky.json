@@ -3,7 +3,8 @@
         "zip": "ani-cli-ita.zip",
         "da-tenere": [
             "preferiti.txt",
-            "down"
+            "down",
+            "mpv"
         ]
     },
     "Music_Player": {
