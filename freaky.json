@@ -13,6 +13,7 @@
             "config.yaml",
             "pref.json",
             "plays.json",
+            "chords.json",
             "music"
         ]
     },
@@ -31,6 +32,7 @@
             "config.yaml",
             "pref.json",
             "plays.json",
+            "chords.json",
             "music"
         ]
     }
