@@ -27,7 +27,8 @@
             "main.py",
             "README.md",
             "requirements.txt",
-            "server.py"
+            "server.py",
+            "app.pyw"
         ]
     },
     "Watchdog.exe": {
@@ -46,19 +47,6 @@
         "files": [
             "music_player.exe",
             "directories.txt"
-        ]
-    },
-    "Music_Player_standalone_python": {
-        "zip_filename": "Music_Player_standalone_python.zip",
-        "dir": "X:/cartelllla/git/Music_Player/",
-        "files": [
-            "static/",
-            "templates/",
-            "lib.py",
-            "main.py",
-            "README.md",
-            "requirements.txt",
-            "app.pyw"
         ]
     }
 }

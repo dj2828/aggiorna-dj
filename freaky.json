@@ -25,15 +25,5 @@
         "da-tenere": [
             "directories.txt"
         ]
-    },
-    "Music_Player_standalone_python": {
-        "zip": "Music_Player_standalone_python.zip",
-        "da-tenere": [
-            "config.yaml",
-            "pref.json",
-            "plays.json",
-            "chords.json",
-            "music"
-        ]
     }
 }
