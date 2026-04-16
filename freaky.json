@@ -4,7 +4,8 @@
         "da-tenere": [
             "preferiti.txt",
             "down",
-            "mpv"
+            "mpv",
+            "db.json"
         ]
     },
     "Music_Player": {
