@@ -36,7 +36,7 @@
         "dir": "X:/cartelllla/git/appp/bot/watch",
         "files": [
             "Watch/",
-            "watchdog/setup.py"
+            "watchdog/setup.bat"
         ]
     },
     "Music_Player_standalone": {
