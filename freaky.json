@@ -8,6 +8,15 @@
             "db.json"
         ]
     },
+    "ani-cli-ita-webUi":{
+        "zip": "ani-cli-ita-webUi.zip",
+        "da-tenere": [
+            "preferiti.txt",
+            "down",
+            "mpv",
+            "db.json"
+        ]
+    },
     "Music_Player": {
         "zip": "Music_Player.zip",
         "da-tenere": [

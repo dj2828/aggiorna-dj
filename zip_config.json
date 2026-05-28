@@ -17,6 +17,16 @@
             "requirements.txt"
         ]
     },
+    "ani-cli-ita-webUi": {
+        "zip_filename": "ani-cli-ita-webUi.zip",
+        "dir": "X:/cartelllla/git/ani-cli-ita/web",
+        "files": [
+            "main.py",
+            "README.md",
+            "requirements.txt",
+            "web/"
+        ]
+    },
     "Music_Player": {
         "zip_filename": "Music_Player.zip",
         "dir": "X:/cartelllla/git/Music_Player",
