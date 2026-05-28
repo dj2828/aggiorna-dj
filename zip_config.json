@@ -19,7 +19,7 @@
     },
     "ani-cli-ita-webUi": {
         "zip_filename": "ani-cli-ita-webUi.zip",
-        "dir": "X:/cartelllla/git/ani-cli-ita/web",
+        "dir": "X:/cartelllla/git/ani-cli-ita",
         "files": [
             "main.py",
             "README.md",
