@@ -5,7 +5,8 @@
             "preferiti.txt",
             "down",
             "mpv",
-            "db.json"
+            "db.json",
+            "syncplay"
         ]
     },
     "ani-cli-ita-webUi":{
@@ -14,7 +15,8 @@
             "preferiti.txt",
             "down",
             "mpv",
-            "db.json"
+            "db.json",
+            "syncplay"
         ]
     },
     "Music_Player": {
