@@ -7,6 +7,7 @@ import tempfile
 import time
 import subprocess
 import sys
+import stat  # Aggiunto per gestire i permessi dei file
 from InquirerPy import prompt
 from InquirerPy.base.control import Choice
 from typing import List, Dict, Any
@@ -21,12 +22,9 @@ GITHUB_BASE_URL = 'https://raw.githubusercontent.com/dj2828/aggiorna-dj/main/'
 
 def get_local_components() -> List[str]:
     """Finds existing local directories that can be updated."""
-    # List all items in the current directory
     local_items = os.listdir("./")
-    # Filter for directories
     local_dirs = [name for name in local_items if os.path.isdir(name)]
     
-    # Remove system/utility directories
     if ".git" in local_dirs:
         local_dirs.remove(".git")
     if "down" in local_dirs:
@@ -47,30 +45,18 @@ def fetch_available_components(url: str) -> Dict[str, Dict]:
 def create_choices(component_list: Dict[str, Dict], local_list: List[str], mode: str) -> List[Any]:
     """
     Creates the choices list for InquirerPy.
-    - If mode is 'update', it includes only components present in local_list.
-    - If mode is 'download', it includes only components NOT present in local_list.
-    
-    This function has been fixed to use the 'mode' argument explicitly 
-    for correct filtering in both 'update' and 'download' scenarios.
     """
     choices = []
-    # component_list is a dictionary, so we use its keys for names
     component_names = list(component_list.keys())
 
     for i, name in enumerate(component_names):
         is_local = name in local_list
-        
-        # Logic for Update choices: component must be local
         if mode == 'update' and is_local:
-             # The choice string includes the 1-based index for easy parsing later
              choices.append(f"{i+1}) {name}")
-        
-        # Logic for Download choices: component must NOT be local
         elif mode == 'download' and not is_local:
              choices.append(f"{i+1}) {name}")
              
     return choices
-
 
 def prompt_user(message: str, choices: List[Any]) -> str:
     """Handles the user prompting."""
@@ -84,23 +70,16 @@ def prompt_user(message: str, choices: List[Any]) -> str:
         }
     ]
     selection_result = prompt(questions)
-    # The result should always contain the key because of the prompt setup
     return selection_result['selected_choice']
 
 def process_selection(selected_choice_string: str, available_data: Dict[str, Dict]) -> tuple[str, str, list]:
     """Parses the choice string and returns the key and value from the data."""
-    # 1. Parse the string (e.g., "3) nome_scelto") to get the original index
-    # The split gets '3', int() converts it, and -1 makes it a 0-based index
     try:
         scelta_index = int(selected_choice_string.split(')')[0]) - 1
     except (ValueError, IndexError):
-        # Handle the case where a special choice like "scarica" is passed
         raise ValueError("Selezione non valida per l'analisi dell'indice.")
         
-    # 2. Use the correct 0-based index to retrieve the KEY and VALUE
     key_name = list(available_data.keys())[scelta_index]
-
-    # available_data entries in the JSON are objects: { "zip": "file.zip", "da-tenere": [...] }
     entry = available_data.get(key_name, {})
     cosa = entry.get('zip')
     da_tenere = entry.get('da-tenere', [])
@@ -108,26 +87,36 @@ def process_selection(selected_choice_string: str, available_data: Dict[str, Dic
 
     return cosa, dove, da_tenere
 
-def download_and_extract(file_to_download: str, target_directory: str, preserve: List[str] | None = None):
-    """Handles the download, extraction, preservation and cleanup process.
+def check_and_install_dependencies():
+    """Controlla ed eventualmente installa pip e venv usando pacman (Arch) o apt (Debian)."""
+    has_venv = subprocess.run([sys.executable, "-m", "venv", "--help"], capture_output=True).returncode == 0
+    has_pip = subprocess.run([sys.executable, "-m", "pip", "--help"], capture_output=True).returncode == 0
+        
+    if not has_venv or not has_pip:
+        print("\n[!] Moduli 'pip' o 'venv' mancanti per l'interprete corrente.")
+        if shutil.which("pacman"):
+            print("Rilevato pacman. Avvio installazione dipendenze per Arch Linux...")
+            subprocess.run(["sudo", "pacman", "-S", "--noconfirm", "python-pip", "python-virtualenv"], check=True)
+        elif shutil.which("apt-get"):
+            print("Rilevato apt. Avvio installazione dipendenze per Debian/Ubuntu...")
+            subprocess.run(["sudo", "apt-get", "update"], check=True)
+            subprocess.run(["sudo", "apt-get", "install", "-y", "python3-pip", "python3-venv"], check=True)
+        else:
+            print("Gestore di pacchetti non riconosciuto. Procedere all'installazione manuale.")
 
-    - `preserve` is a list of file/directory names (relative to `target_directory`) to be
-      temporarily moved aside and restored after extraction.
-    """
+def download_and_extract(file_to_download: str, target_directory: str, preserve: List[str] | None = None):
+    """Handles the download, extraction, preservation and cleanup process."""
     print(f"Aggiornamento di '{target_directory}' in corso. Download di '{file_to_download}'...")
 
-    # Cache-buster per evitare risposte cached
     download_url = GITHUB_BASE_URL + "down/" + file_to_download + "?t=" + str(int(time.time()))
     headers = {'Cache-Control': 'no-cache'}
     temp_preserve_dir = None
     extraction_succeeded = False
 
-    # Ensure target directory exists
     if not os.path.exists(target_directory):
         os.mkdir(target_directory)
 
     try:
-        # 0. If there are items to preserve, move them to a temporary folder
         if preserve:
             temp_preserve_dir = tempfile.mkdtemp(prefix=f"preserve_{os.path.basename(target_directory)}_")
             for item in preserve:
@@ -136,10 +125,8 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
                     dest_path = os.path.join(temp_preserve_dir, os.path.basename(item))
                     shutil.move(src_path, dest_path)
 
-        # 0b. Remove everything left in the target directory to ensure a clean update
         for child in os.listdir(target_directory):
             child_path = os.path.join(target_directory, child)
-            # skip temp preserve dir if somehow inside target
             if temp_preserve_dir and os.path.abspath(child_path) == os.path.abspath(temp_preserve_dir):
                 continue
             try:
@@ -150,17 +137,14 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
             except Exception:
                 pass
 
-        # 1. Download the file content (streamed, with no-cache header)
         request = requests.get(download_url, headers=headers, stream=True)
         request.raise_for_status()
 
-        # 2. Write the content to a local file in chunks
         with open(file_to_download, 'wb') as f:
             for chunk in request.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
 
-        # 3. Extract the contents into target_directory
         with zipfile.ZipFile(file_to_download, 'r') as zip_ref:
             zip_ref.extractall(target_directory)
 
@@ -172,20 +156,17 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
         extraction_succeeded = False
 
     finally:
-        # Remove downloaded zip file if exists
         if os.path.exists(file_to_download):
             try:
                 os.remove(file_to_download)
             except OSError:
                 pass
 
-        # Restore preserved items (overwrite any extracted content) so 'da-tenere' is preserved
         if temp_preserve_dir and os.path.exists(temp_preserve_dir):
             for preserved_name in os.listdir(temp_preserve_dir):
                 src = os.path.join(temp_preserve_dir, preserved_name)
                 dest = os.path.join(target_directory, preserved_name)
 
-                # If destination exists, remove it first to ensure preserved content wins
                 if os.path.exists(dest):
                     try:
                         if os.path.isdir(dest) and not os.path.islink(dest):
@@ -198,7 +179,6 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
                 try:
                     shutil.move(src, dest)
                 except Exception:
-                    # If move fails, try copy as fallback
                     try:
                         if os.path.isdir(src):
                             shutil.copytree(src, dest)
@@ -207,28 +187,65 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
                     except Exception:
                         pass
 
-            # Clean up the temporary preserve directory
             try:
                 if os.path.exists(temp_preserve_dir):
                     shutil.rmtree(temp_preserve_dir)
             except OSError:
                 pass
 
-        # If extraction succeeded, try to install requirements and then delete the file
         if extraction_succeeded:
+            # NUOVA FUNZIONE: Rende i file .py eseguibili (chmod +x)
+            for root_dir, _, files in os.walk(target_directory):
+                for file in files:
+                    if file.endswith('.py'):
+                        file_path = os.path.join(root_dir, file)
+                        try:
+                            st = os.stat(file_path)
+                            # Aggiunge i permessi di esecuzione per proprietario (USR), gruppo (GRP) e altri (OTH)
+                            os.chmod(file_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                        except Exception as e:
+                            print(f"Impossibile rendere eseguibile {file_path}: {e}")
+
             req_path = os.path.join(target_directory, 'requirements.txt')
             if os.path.exists(req_path):
-                print(f"Trovato `requirements.txt` in '{target_directory}'. Eseguo 'pip install -r requirements.txt'...")
+                print(f"\nTrovato `requirements.txt` in '{target_directory}'.")
+                
+                check_and_install_dependencies()
+
+                install_choices = [
+                    Choice(value="venv", name="Virtual Environment locale (.venv) [Consigliato]"),
+                    Choice(value="system", name="Sistema (Globale / User)")
+                ]
+                install_mode = prompt_user("Come vuoi installare i requisiti Python?", install_choices)
+
                 try:
-                    # When running with cwd=target_directory, pass the filename relative to cwd
-                    subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', os.path.basename(req_path), '--upgrade'], check=True, cwd=target_directory)
+                    if install_mode == "venv":
+                        venv_path = os.path.join(target_directory, '.venv')
+                        if not os.path.exists(venv_path):
+                            print("Creazione del virtual environment in corso...")
+                            subprocess.run([sys.executable, '-m', 'venv', venv_path], check=True)
+                        
+                        pip_exe = os.path.join(venv_path, 'Scripts', 'pip.exe') if os.name == 'nt' else os.path.join(venv_path, 'bin', 'pip')
+                        
+                        print("Installazione dei pacchetti nel virtual environment...")
+                        subprocess.run([pip_exe, 'install', '-r', os.path.basename(req_path), '--upgrade'], check=True, cwd=target_directory)
+
+                    elif install_mode == "system":
+                        print("Installazione dei pacchetti a livello di sistema...")
+                        cmd = [sys.executable, '-m', 'pip', 'install', '-r', os.path.basename(req_path), '--upgrade']
+                        
+                        cmd_break = cmd + ['--break-system-packages']
+                        try:
+                            subprocess.run(cmd_break, check=True, cwd=target_directory)
+                        except subprocess.CalledProcessError:
+                            subprocess.run(cmd, check=True, cwd=target_directory)
+
                     print("Installazione dei requisiti completata.")
                 except subprocess.CalledProcessError as e:
                     print(f"Errore durante l'installazione dei requisiti: {e}")
                 except Exception as e:
-                    print(f"Errore inatteso durante l'installazione dei requisiti: {e}")
+                    print(f"Errore inatteso durante l'installazione: {e}")
 
-                # Rimuovi il file requirements.txt dopo il tentativo
                 try:
                     os.remove(req_path)
                     print("File 'requirements.txt' rimosso.")
@@ -238,21 +255,16 @@ def download_and_extract(file_to_download: str, target_directory: str, preserve:
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
     
-    # 1. Fetch available components and find local ones
     available_data = fetch_available_components(GITHUB_BASE_URL)
     local_components = get_local_components()
     
-    # 2. Create the list of components that are local (for updating)
-    # Passed 'update' mode
     update_choices = create_choices(available_data, local_components, 'update')
     
     if not update_choices:
         print("Nessun elemento locale aggiornabile trovato.")
     
-    # 3. Create the initial prompt choices, including the "Download new" option
     initial_choices = [Choice(value="scarica", name="Scarica nuovo")] + update_choices
     
-    # Check if only the 'scarica' option is available (i.e., no local components)
     if len(initial_choices) == 1 and initial_choices[0].value == "scarica":
         print("Nessun elemento aggiornabile trovato. Passaggio diretto alla sezione 'Scarica nuovo'.")
         selected_choice = 'scarica'
@@ -260,30 +272,21 @@ if __name__ == "__main__":
         print("Nessun elemento aggiornabile o scaricabile trovato.")
         exit()
     else:
-        # 4. Prompt the user for an initial action
         selected_choice = prompt_user("Scegli un elemento da aggiornare o 'Scarica nuovo':", initial_choices)
     
-    # --- HANDLE 'SCARICA NUOVO' OPTION ---
     if selected_choice == 'scarica':
-        
-        # Create the list of components that are NOT local (for downloading)
-        # Passed 'download' mode and local_components as filter list
         download_choices = create_choices(available_data, local_components, 'download')
         
         if not download_choices:
             print("Nessun nuovo elemento scaricabile trovato.")
             exit()
             
-        # Prompt the user for a new component to download
         selected_choice = prompt_user("Scegli un elemento da scaricare:", download_choices)
         
-    # --- PROCESS SELECTION AND RUN UPDATE/DOWNLOAD ---
-    
     try:
         cosa, dove, da_tenere = process_selection(selected_choice, available_data)
         download_and_extract(cosa, dove, preserve=da_tenere)
     except ValueError as e:
-        # This catches the ValueError raised if 'scarica' somehow gets here
         print(f"Errore di elaborazione della selezione: {e}")
     except IndexError:
         print("Errore: La selezione non corrisponde ad alcun elemento disponibile.")
