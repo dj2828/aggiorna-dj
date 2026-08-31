@@ -19,6 +19,9 @@
             "syncplay"
         ]
     },
+    "manga-cli-ita": {
+        "zip": "manga-cli-ita.zip"
+    },
     "Music_Player": {
         "zip": "Music_Player.zip",
         "da-tenere": [
